@@ -1,5 +1,6 @@
 from flask import Flask, request
 from datetime import datetime
+import os
 
 app = Flask(__name__)
 
@@ -17,51 +18,88 @@ def home():
     <html>
     <head>
         <title>m0ltexArmy</title>
+
         <style>
             body {{
                 background: black;
-                color: white;
-                font-family: monospace;
-                text-align: center;
+                color: #e6e6e6;
+                font-family: Consolas, monospace;
+                margin: 0;
+                overflow: hidden;
             }}
 
             h1 {{
-                font-size: 60px;
-                margin-top: 50px;
-                animation: glitch 1s infinite;
+                text-align: center;
+                font-size: 70px;
+                margin-top: 30px;
+                animation: glitch 0.7s infinite;
             }}
 
             @keyframes glitch {{
-                0% {{text-shadow: 2px 2px red;}}
-                50% {{text-shadow: -2px -2px purple;}}
-                100% {{text-shadow: 2px 2px red;}}
+                0% {{text-shadow: 3px 3px red;}}
+                25% {{text-shadow: -3px 2px cyan;}}
+                50% {{text-shadow: 2px -3px purple;}}
+                75% {{text-shadow: -2px -2px red;}}
+                100% {{text-shadow: 3px 3px cyan;}}
             }}
 
-            #terminal {{
-                margin: 40px auto;
-                width: 80%;
-                border: 1px solid white;
-                padding: 20px;
-                text-align: left;
-                min-height: 200px;
-            }}
-
-            #counter {{
-                margin-top: 20px;
+            #loadingScreen {{
+                position: fixed;
+                width: 100%;
+                height: 100%;
+                background: black;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-direction: column;
                 color: lime;
+                font-size: 25px;
+                z-index: 999;
             }}
 
             .bar {{
                 width: 0%;
-                height: 5px;
+                height: 4px;
                 background: lime;
                 margin-top: 10px;
-                animation: load 4s linear forwards;
+                animation: load 3s linear forwards;
             }}
 
             @keyframes load {{
                 0% {{width: 0%;}}
                 100% {{width: 100%;}}
+            }}
+
+            .container {{
+                display: flex;
+                justify-content: space-around;
+                margin-top: 20px;
+            }}
+
+            .box {{
+                border: 1px solid #444;
+                padding: 15px;
+                width: 280px;
+                background: rgba(255,255,255,0.03);
+            }}
+
+            .title {{
+                border-bottom: 1px solid #333;
+                margin-bottom: 10px;
+            }}
+
+            #terminal {{
+                margin: 20px;
+                border: 1px solid #333;
+                padding: 15px;
+                height: 180px;
+                overflow-y: auto;
+            }}
+
+            #counter {{
+                text-align: center;
+                margin-top: 10px;
+                color: lime;
             }}
         </style>
 
@@ -76,7 +114,7 @@ def home():
                 "System ready.",
                 "",
                 "No nic...",
-                "M0ltexArmy na topu 😈"
+                "m0ltexArmy na topu 😈"
             ];
 
             let i = 0;
@@ -85,30 +123,71 @@ def home():
                 if (i < lines.length) {{
                     let term = document.getElementById("terminal");
                     term.innerHTML += lines[i] + "<br>";
+                    term.scrollTop = term.scrollHeight;
                     i++;
-                    setTimeout(typeLine, 400);
+                    setTimeout(typeLine, 350);
                 }}
             }}
 
-            window.onload = () => {{
+            function startApp() {{
+                document.getElementById("loadingScreen").style.display = "none";
                 typeLine();
+            }}
+
+            window.onload = () => {{
+                setTimeout(startApp, 2000);
             }};
+
+            setInterval(() => {{
+                location.reload();
+            }}, 15000);
         </script>
     </head>
 
     <body>
+
+        <div id="loadingScreen">
+            Loading m0ltexArmy...
+            <div class="bar"></div>
+        </div>
+
         <h1>m0ltexArmy</h1>
 
-        <div id="terminal"></div>
+        <div class="container">
 
-        <div class="bar"></div>
+            <div class="box">
+                <div class="title">[ SYSTEM ]</div>
+                IP: {ip}<br>
+                Time: {datetime.now().strftime("%H:%M:%S")}
+            </div>
+
+            <div class="box">
+                <div class="title">[ STATUS ]</div>
+                Server: ONLINE<br>
+                Mode: ACTIVE<br>
+                Visitors: {visits}
+            </div>
+
+            <div class="box">
+                <div class="title">[ MODULES ]</div>
+                Geo ✔<br>
+                UI ✔<br>
+                Logs ✔<br>
+                Core ✔
+            </div>
+
+        </div>
+
+        <div id="terminal"></div>
 
         <div id="counter">
             Visitors: {visits}
         </div>
+
     </body>
     </html>
     """
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
