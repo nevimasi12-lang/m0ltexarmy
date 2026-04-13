@@ -28,38 +28,48 @@ def home():
                 overflow: hidden;
             }}
 
-            /* 🔥 BLUR + GLOW BACKGROUND LOGO */
+            /* 🔥 ULTRA VIDITELNÉ LOGO */
             .bg-logo {{
                 position: fixed;
                 top: 50%;
                 left: 50%;
                 transform: translate(-50%, -50%);
-                width: 600px;
-                opacity: 0.08;
-                filter: blur(2px);
-                animation: pulse 3s infinite;
+                width: 700px;
+                opacity: 0.3;
+                animation: pulse 2s infinite, glitchLogo 0.4s infinite;
                 z-index: 0;
             }}
 
             @keyframes pulse {{
-                0% {{ opacity: 0.05; transform: translate(-50%, -50%) scale(1); }}
-                50% {{ opacity: 0.15; transform: translate(-50%, -50%) scale(1.1); }}
-                100% {{ opacity: 0.05; transform: translate(-50%, -50%) scale(1); }}
+                0% {{ opacity: 0.2; transform: translate(-50%, -50%) scale(1); }}
+                50% {{ opacity: 0.5; transform: translate(-50%, -50%) scale(1.15); }}
+                100% {{ opacity: 0.2; transform: translate(-50%, -50%) scale(1); }}
+            }}
+
+            @keyframes glitchLogo {{
+                0% {{ filter: blur(1px) brightness(1); }}
+                20% {{ filter: blur(4px) brightness(2); }}
+                40% {{ filter: blur(0px) brightness(0.5); }}
+                60% {{ filter: blur(3px) brightness(1.5); }}
+                80% {{ filter: blur(1px) brightness(0.7); }}
+                100% {{ filter: blur(1px) brightness(1); }}
             }}
 
             h1 {{
                 text-align: center;
-                font-size: 60px;
+                font-size: 65px;
                 margin-top: 40px;
                 z-index: 2;
                 position: relative;
-                animation: glitch 1s infinite;
+                animation: glitchText 0.6s infinite;
             }}
 
-            @keyframes glitch {{
-                0% {{ text-shadow: 2px 2px red; }}
-                50% {{ text-shadow: -2px -2px purple; }}
-                100% {{ text-shadow: 2px 2px red; }}
+            @keyframes glitchText {{
+                0% {{ text-shadow: 3px 3px red; }}
+                25% {{ text-shadow: -3px 2px cyan; }}
+                50% {{ text-shadow: 2px -3px purple; }}
+                75% {{ text-shadow: -2px -2px red; }}
+                100% {{ text-shadow: 3px 3px cyan; }}
             }}
 
             #terminal {{
@@ -70,8 +80,8 @@ def home():
                 min-height: 200px;
                 z-index: 2;
                 position: relative;
-                background: rgba(0,0,0,0.7);
-                box-shadow: 0 0 20px lime;
+                background: rgba(0,0,0,0.8);
+                box-shadow: 0 0 25px lime;
             }}
 
             #counter {{
@@ -87,12 +97,33 @@ def home():
                 height: 5px;
                 background: lime;
                 margin-top: 20px;
-                animation: load 5s linear forwards;
+                animation: load 4s linear forwards;
             }}
 
             @keyframes load {{
                 0% {{ width: 0%; }}
                 100% {{ width: 100%; }}
+            }}
+
+            /* 💀 FLASH EFEKT */
+            body::after {{
+                content: "";
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: white;
+                opacity: 0;
+                animation: flash 6s infinite;
+                pointer-events: none;
+            }}
+
+            @keyframes flash {{
+                0% {{ opacity: 0; }}
+                95% {{ opacity: 0; }}
+                96% {{ opacity: 0.4; }}
+                100% {{ opacity: 0; }}
             }}
         </style>
 
@@ -116,8 +147,9 @@ def home():
                 if (i < lines.length) {{
                     let term = document.getElementById("terminal");
                     term.innerHTML += lines[i] + "<br>";
+                    term.scrollTop = term.scrollHeight;
                     i++;
-                    setTimeout(typeLine, 300);
+                    setTimeout(typeLine, 250);
                 }}
             }}
 
@@ -129,7 +161,6 @@ def home():
 
     <body>
 
-        <!-- 🔥 TVOJE LOGO NA POZADÍ -->
         <img src="https://i.imgur.com/hWAaQFK.png" class="bg-logo">
 
         <h1>m0ltexArmy</h1>
