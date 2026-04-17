@@ -1,155 +1,208 @@
-from flask import Flask, request, redirect, session
+from flask import Flask, request, session, redirect, url_for
 from datetime import datetime
 import os
 
 app = Flask(__name__)
-app.secret_key = "secret123"
+app.secret_key = "supersecretkey123"  # změň klidně
 
 visits = 0
 logs = []
 
-users = {
-    "founder": {"password": "1234", "role": "founder"},
-    "staff": {"password": "abcd", "role": "staff"}
+# 🔐 LOGIN DATA (můžeš změnit)
+USERS = {
+    "FOUNDER123": "founder",
+    "STAFF123": "staff"
 }
 
+# ======================
+# 🌐 MAIN PAGE
+# ======================
 @app.route("/")
 def home():
     global visits
     visits += 1
 
     ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-    logs.append(ip)
+    logs.append(f"[{datetime.now()}] {ip}")
 
     return f"""
     <html>
     <head>
+    <title>m0ltexArmy</title>
+
     <style>
     body {{
-        margin:0;
-        background:black;
-        color:white;
-        font-family:monospace;
+        margin: 0;
+        background: #050505;
+        color: white;
+        font-family: monospace;
     }}
 
     h1 {{
-        text-align:center;
-        font-size:60px;
-        margin-top:30px;
-        color:white;
-        text-shadow: 0 0 10px red, 0 0 25px red;
+        text-align: center;
+        font-size: 60px;
+        color: white;
+        text-shadow: 0 0 10px red, 0 0 30px red;
     }}
 
-    .layout {{
-        display:flex;
-        padding:20px;
+    .box {{
+        width: 80%;
+        margin: 40px auto;
+        padding: 20px;
+        background: rgba(0,0,0,0.8);
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(255,0,0,0.3);
     }}
 
-    .left {{
-        width:60%;
-        border:1px solid lime;
-        box-shadow:0 0 20px lime;
-        padding:20px;
-        margin-right:10px;
-    }}
-
-    .right {{
-        width:40%;
-        border:1px solid white;
-        box-shadow:0 0 20px white;
-        padding:20px;
-        height:300px;
-        overflow:auto;
-    }}
-
-    #terminal {{
-        height:200px;
-    }}
-
-    .bar {{
-        height:5px;
-        background:lime;
-        animation:load 4s forwards;
-    }}
-
-    @keyframes load {{
-        from {{width:0%;}}
-        to {{width:100%;}}
+    input {{
+        width: 100%;
+        padding: 10px;
+        margin-top: 10px;
+        background: black;
+        border: 1px solid white;
+        color: white;
     }}
 
     button {{
-        background:black;
-        color:lime;
-        border:1px solid lime;
-        padding:10px;
-        margin:5px;
-        cursor:pointer;
+        width: 100%;
+        margin-top: 10px;
+        padding: 10px;
+        background: transparent;
+        border: 1px solid red;
+        color: white;
+        cursor: pointer;
     }}
 
     button:hover {{
-        background:lime;
-        color:black;
+        background: red;
     }}
     </style>
-
-    <script>
-    let lines = [
-        "Initializing system...",
-        "Connecting...",
-        "Access granted...",
-        "System ready."
-    ];
-
-    let i=0;
-    function typeLine(){{
-        if(i<lines.length){{
-            document.getElementById("terminal").innerHTML += lines[i]+"<br>";
-            i++;
-            setTimeout(typeLine,300);
-        }}
-    }}
-
-    function fakeCmd(){{
-        let el = document.getElementById("cmd");
-        let cmds = ["ping server...", "checking users...", "loading data..."];
-        setInterval(()=>{{
-            el.innerHTML += cmds[Math.floor(Math.random()*cmds.length)]+"<br>";
-            el.scrollTop = el.scrollHeight;
-        }},1000);
-    }}
-
-    function clearTerminal(){{
-        document.getElementById("terminal").innerHTML = "";
-        i = 0;
-        typeLine();
-    }}
-
-    window.onload = ()=>{{
-        typeLine();
-        fakeCmd();
-    }};
-    </script>
     </head>
 
     <body>
 
     <h1>ᴍ𝟘ʟᴛᴇ𝔁𝔸𝕣𝕞𝕪</h1>
 
-    <div class="layout">
+    <div class="box">
+        <h3>Access Panel</h3>
+        <form method="POST" action="/login">
+            <input name="key" placeholder="Enter key">
+            <button type="submit">Login</button>
+        </form>
+    </div>
 
-        <div class="left">
-            <div id="terminal"></div>
+    </body>
+    </html>
+    """
 
-            <div class="bar"></div>
 
-            <p style="color:lime;">Visitors: {visits}</p>
+# ======================
+# 🔐 LOGIN SYSTEM
+# ======================
+@app.route("/login", methods=["POST"])
+def login():
+    key = request.form.get("key")
 
-            <button onclick="clearTerminal()">Restart Terminal</button>
-            <a href="/login"><button>Login Panel</button></a>
+    if key in USERS:
+        session["role"] = USERS[key]
+        return redirect("/dashboard")
+
+    return "Wrong key"
+
+
+# ======================
+# 📊 DASHBOARD
+# ======================
+@app.route("/dashboard")
+def dashboard():
+    if "role" not in session:
+        return redirect("/")
+
+    role = session["role"]
+
+    log_html = "<br>".join(logs[-20:])
+
+    founder_extra = ""
+    if role == "founder":
+        founder_extra = """
+        <button onclick="window.location='/clear_logs'">Clear Logs</button>
+        """
+
+    return f"""
+    <html>
+    <head>
+    <title>Dashboard</title>
+
+    <style>
+    body {{
+        background: #050505;
+        color: white;
+        font-family: monospace;
+    }}
+
+    h1 {{
+        text-align: center;
+        color: white;
+        text-shadow: 0 0 10px red;
+    }}
+
+    .container {{
+        display: flex;
+        gap: 20px;
+        padding: 20px;
+    }}
+
+    .panel {{
+        flex: 1;
+        background: rgba(0,0,0,0.8);
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 0 15px rgba(255,255,255,0.2);
+    }}
+
+    .logs {{
+        height: 300px;
+        overflow-y: auto;
+        background: black;
+        padding: 10px;
+        border: 1px solid white;
+    }}
+
+    button {{
+        width: 100%;
+        margin-top: 10px;
+        padding: 10px;
+        border: 1px solid red;
+        background: transparent;
+        color: white;
+        cursor: pointer;
+    }}
+
+    button:hover {{
+        background: red;
+    }}
+    </style>
+    </head>
+
+    <body>
+
+    <h1>Dashboard ({role.upper()})</h1>
+
+    <div class="container">
+
+        <div class="panel">
+            <h3>Stats</h3>
+            <p>Visitors: {visits}</p>
+
+            <button onclick="window.location.reload()">Refresh</button>
+            <button onclick="window.location='/logout'">Logout</button>
+
+            {founder_extra}
         </div>
 
-        <div class="right">
-            <div id="cmd"></div>
+        <div class="panel">
+            <h3>Visitor Logs</h3>
+            <div class="logs">{log_html}</div>
         </div>
 
     </div>
@@ -158,70 +211,30 @@ def home():
     </html>
     """
 
-@app.route("/login", methods=["GET","POST"])
-def login():
-    if request.method == "POST":
-        user = request.form["user"]
-        pw = request.form["pw"]
 
-        if user in users and users[user]["password"] == pw:
-            session["user"] = user
-            return redirect("/dashboard")
+# ======================
+# 🔥 FOUNDER ONLY
+# ======================
+@app.route("/clear_logs")
+def clear_logs():
+    if session.get("role") != "founder":
+        return "Access denied"
 
-    return """
-    <body style="background:black;color:white;text-align:center;font-family:monospace;">
-    <h1>LOGIN</h1>
-    <form method="post">
-    <input name="user"><br><br>
-    <input name="pw" type="password"><br><br>
-    <button>Login</button>
-    </form>
-    </body>
-    """
-
-@app.route("/dashboard")
-def dash():
-    if "user" not in session:
-        return redirect("/login")
-
-    role = users[session["user"]]["role"]
-
-    extra = ""
-
-    if role == "founder":
-        extra = """
-        <form action="/reset">
-        <button>RESET VISITS</button>
-        </form>
-
-        <form action="/clearlogs">
-        <button>CLEAR LOGS</button>
-        </form>
-        """
-
-    return f"""
-    <body style="background:black;color:lime;font-family:monospace;text-align:center;">
-    <h1>DASHBOARD ({role})</h1>
-
-    <p>Visitors: {visits}</p>
-
-    {extra}
-
-    <a href="/">Back</a>
-    </body>
-    """
-
-@app.route("/reset")
-def reset():
-    global visits
-    visits = 0
+    logs.clear()
     return redirect("/dashboard")
 
-@app.route("/clearlogs")
-def clearlogs():
-    global logs
-    logs = []
-    return redirect("/dashboard")
 
+# ======================
+# 🔓 LOGOUT
+# ======================
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/")
+
+
+# ======================
+# 🚀 RUN
+# ======================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
