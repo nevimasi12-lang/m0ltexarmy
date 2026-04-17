@@ -1,14 +1,14 @@
-from flask import Flask, request, session, redirect, url_for
+from flask import Flask, request, session, redirect
 from datetime import datetime
 import os
 
 app = Flask(__name__)
-app.secret_key = "supersecretkey123"  # změň klidně
+app.secret_key = "m0ltex_secret_2026"
 
 visits = 0
 logs = []
 
-# 🔐 LOGIN DATA (můžeš změnit)
+# 🔐 LOGIN KEYS
 USERS = {
     "FOUNDER123": "founder",
     "STAFF123": "staff"
@@ -23,7 +23,7 @@ def home():
     visits += 1
 
     ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-    logs.append(f"[{datetime.now()}] {ip}")
+    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] {ip}")
 
     return f"""
     <html>
@@ -32,49 +32,50 @@ def home():
 
     <style>
     body {{
-        margin: 0;
-        background: #050505;
-        color: white;
-        font-family: monospace;
+        margin:0;
+        background:black;
+        font-family:monospace;
+        color:white;
+        overflow:hidden;
     }}
 
     h1 {{
-        text-align: center;
-        font-size: 60px;
-        color: white;
-        text-shadow: 0 0 10px red, 0 0 30px red;
+        text-align:center;
+        margin-top:40px;
+        font-size:70px;
+        text-shadow:0 0 10px red,0 0 30px red;
     }}
 
-    .box {{
-        width: 80%;
-        margin: 40px auto;
-        padding: 20px;
-        background: rgba(0,0,0,0.8);
-        border-radius: 10px;
-        box-shadow: 0 0 20px rgba(255,0,0,0.3);
+    .panel {{
+        width:300px;
+        margin:80px auto;
+        padding:20px;
+        background:rgba(0,0,0,0.9);
+        border-radius:10px;
+        box-shadow:0 0 20px red;
     }}
 
     input {{
-        width: 100%;
-        padding: 10px;
-        margin-top: 10px;
-        background: black;
-        border: 1px solid white;
-        color: white;
+        width:100%;
+        padding:10px;
+        background:black;
+        border:1px solid red;
+        color:white;
+        margin-top:10px;
     }}
 
     button {{
-        width: 100%;
-        margin-top: 10px;
-        padding: 10px;
-        background: transparent;
-        border: 1px solid red;
-        color: white;
-        cursor: pointer;
+        width:100%;
+        margin-top:10px;
+        padding:10px;
+        border:1px solid red;
+        background:black;
+        color:white;
+        cursor:pointer;
     }}
 
     button:hover {{
-        background: red;
+        background:red;
     }}
     </style>
     </head>
@@ -83,11 +84,10 @@ def home():
 
     <h1>ᴍ𝟘ʟᴛᴇ𝔁𝔸𝕣𝕞𝕪</h1>
 
-    <div class="box">
-        <h3>Access Panel</h3>
+    <div class="panel">
         <form method="POST" action="/login">
-            <input name="key" placeholder="Enter key">
-            <button type="submit">Login</button>
+            <input name="key" placeholder="Enter access key">
+            <button>LOGIN</button>
         </form>
     </div>
 
@@ -95,9 +95,8 @@ def home():
     </html>
     """
 
-
 # ======================
-# 🔐 LOGIN SYSTEM
+# 🔐 LOGIN
 # ======================
 @app.route("/login", methods=["POST"])
 def login():
@@ -107,8 +106,7 @@ def login():
         session["role"] = USERS[key]
         return redirect("/dashboard")
 
-    return "Wrong key"
-
+    return "<h1 style='color:red;text-align:center;'>❌ Wrong key</h1>"
 
 # ======================
 # 📊 DASHBOARD
@@ -119,74 +117,71 @@ def dashboard():
         return redirect("/")
 
     role = session["role"]
-
     log_html = "<br>".join(logs[-20:])
 
-    founder_extra = ""
+    founder_panel = ""
     if role == "founder":
-        founder_extra = """
-        <button onclick="window.location='/clear_logs'">Clear Logs</button>
+        founder_panel = """
+        <button onclick="location.href='/clear_logs'">CLEAR LOGS</button>
+        <button onclick="location.href='/reset'">RESET VISITS</button>
         """
 
     return f"""
     <html>
     <head>
-    <title>Dashboard</title>
-
     <style>
     body {{
-        background: #050505;
-        color: white;
-        font-family: monospace;
+        background:black;
+        color:white;
+        font-family:monospace;
     }}
 
     h1 {{
-        text-align: center;
-        color: white;
-        text-shadow: 0 0 10px red;
+        text-align:center;
+        text-shadow:0 0 15px red;
     }}
 
     .container {{
-        display: flex;
-        gap: 20px;
-        padding: 20px;
+        display:flex;
+        gap:20px;
+        padding:20px;
     }}
 
     .panel {{
-        flex: 1;
-        background: rgba(0,0,0,0.8);
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 0 15px rgba(255,255,255,0.2);
+        flex:1;
+        background:rgba(0,0,0,0.9);
+        padding:20px;
+        border-radius:10px;
+        box-shadow:0 0 20px red;
     }}
 
     .logs {{
-        height: 300px;
-        overflow-y: auto;
-        background: black;
-        padding: 10px;
-        border: 1px solid white;
+        height:300px;
+        overflow:auto;
+        background:black;
+        padding:10px;
+        border:1px solid red;
     }}
 
     button {{
-        width: 100%;
-        margin-top: 10px;
-        padding: 10px;
-        border: 1px solid red;
-        background: transparent;
-        color: white;
-        cursor: pointer;
+        width:100%;
+        margin-top:10px;
+        padding:10px;
+        border:1px solid red;
+        background:black;
+        color:white;
+        cursor:pointer;
     }}
 
     button:hover {{
-        background: red;
+        background:red;
     }}
     </style>
     </head>
 
     <body>
 
-    <h1>Dashboard ({role.upper()})</h1>
+    <h1>DASHBOARD ({role.upper()})</h1>
 
     <div class="container">
 
@@ -194,10 +189,10 @@ def dashboard():
             <h3>Stats</h3>
             <p>Visitors: {visits}</p>
 
-            <button onclick="window.location.reload()">Refresh</button>
-            <button onclick="window.location='/logout'">Logout</button>
+            <button onclick="location.reload()">REFRESH</button>
+            <button onclick="location.href='/logout'">LOGOUT</button>
 
-            {founder_extra}
+            {founder_panel}
         </div>
 
         <div class="panel">
@@ -211,7 +206,6 @@ def dashboard():
     </html>
     """
 
-
 # ======================
 # 🔥 FOUNDER ONLY
 # ======================
@@ -223,6 +217,14 @@ def clear_logs():
     logs.clear()
     return redirect("/dashboard")
 
+@app.route("/reset")
+def reset():
+    if session.get("role") != "founder":
+        return "Access denied"
+
+    global visits
+    visits = 0
+    return redirect("/dashboard")
 
 # ======================
 # 🔓 LOGOUT
@@ -231,7 +233,6 @@ def clear_logs():
 def logout():
     session.clear()
     return redirect("/")
-
 
 # ======================
 # 🚀 RUN
