@@ -1,32 +1,14 @@
-from flask import Flask, request, session, redirect
+from flask import Flask, request, session, redirect, url_for
 from datetime import datetime
-import sqlite3
 import os
 
 app = Flask(__name__)
-app.secret_key = "m0ltex_secret_2026"
+app.secret_key = "supersecretkey123"  # změň klidně
 
-# ======================
-# 💾 DATABASE INIT
-# ======================
-def init_db():
-    conn = sqlite3.connect("data.db")
-    c = conn.cursor()
+visits = 0
+logs = []
 
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS visits (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        ip TEXT,
-        time TEXT
-    )
-    """)
-
-    conn.commit()
-    conn.close()
-
-init_db()
-
-# 🔐 LOGIN KEYS
+# 🔐 LOGIN DATA (můžeš změnit)
 USERS = {
     "FOUNDER123": "founder",
     "STAFF123": "staff"
@@ -37,131 +19,96 @@ USERS = {
 # ======================
 @app.route("/")
 def home():
+    global visits
+    visits += 1
+
     ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+    logs.append(f"[{datetime.now()}] {ip}")
 
-    conn = sqlite3.connect("data.db")
-    c = conn.cursor()
-    c.execute("INSERT INTO visits (ip, time) VALUES (?, ?)", (ip, datetime.now().strftime("%H:%M:%S")))
-    conn.commit()
-    conn.close()
-
-    return """
+    return f"""
     <html>
     <head>
     <title>m0ltexArmy</title>
 
     <style>
-    body {
-        margin:0;
-        background:#050505;
-        color:white;
-        font-family:monospace;
-        display:flex;
-    }
+    body {{
+        margin: 0;
+        background: #050505;
+        color: white;
+        font-family: monospace;
+    }}
 
-    /* 🔥 SIDEBAR */
-    .sidebar {
-        width:220px;
-        height:100vh;
-        background:#0a0a0a;
-        border-right:1px solid red;
-        box-shadow:0 0 20px red;
-        padding:20px;
-    }
+    h1 {{
+        text-align: center;
+        font-size: 60px;
+        color: white;
+        text-shadow: 0 0 10px red, 0 0 30px red;
+    }}
 
-    .sidebar h2 {
-        color:white;
-        text-shadow:0 0 10px red;
-    }
+    .box {{
+        width: 80%;
+        margin: 40px auto;
+        padding: 20px;
+        background: rgba(0,0,0,0.8);
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(255,0,0,0.3);
+    }}
 
-    .menu a {
-        display:block;
-        margin:15px 0;
-        color:white;
-        text-decoration:none;
-        padding:8px;
-        border:1px solid transparent;
-    }
+    input {{
+        width: 100%;
+        padding: 10px;
+        margin-top: 10px;
+        background: black;
+        border: 1px solid white;
+        color: white;
+    }}
 
-    .menu a:hover {
-        border:1px solid red;
-        box-shadow:0 0 10px red;
-    }
+    button {{
+        width: 100%;
+        margin-top: 10px;
+        padding: 10px;
+        background: transparent;
+        border: 1px solid red;
+        color: white;
+        cursor: pointer;
+    }}
 
-    /* 🔥 MAIN */
-    .main {
-        flex:1;
-        padding:40px;
-        text-align:center;
-    }
-
-    h1 {
-        font-size:70px;
-        text-shadow:0 0 10px red,0 0 40px red;
-    }
-
-    .box {
-        margin-top:50px;
-        padding:30px;
-        background:rgba(0,0,0,0.8);
-        border-radius:10px;
-        box-shadow:0 0 20px red;
-    }
+    button:hover {{
+        background: red;
+    }}
     </style>
     </head>
 
     <body>
 
-    <div class="sidebar">
-        <h2>MENU</h2>
-        <div class="menu">
-            <a href="/login">Login</a>
-            <a href="#">Shop</a>
-            <a href="#">Discord</a>
-            <a href="#">YouTube</a>
-            <a href="#">Info</a>
-        </div>
-    </div>
+    <h1>ᴍ𝟘ʟᴛᴇ𝔁𝔸𝕣𝕞𝕪</h1>
 
-    <div class="main">
-        <h1>ᴍ𝟘ʟᴛᴇ𝔁𝔸𝕣𝕞𝕪</h1>
-
-        <div class="box">
-            <p>Welcome to the system</p>
-        </div>
+    <div class="box">
+        <h3>Access Panel</h3>
+        <form method="POST" action="/login">
+            <input name="key" placeholder="Enter key">
+            <button type="submit">Login</button>
+        </form>
     </div>
 
     </body>
     </html>
     """
 
+
 # ======================
-# 🔐 LOGIN PAGE
+# 🔐 LOGIN SYSTEM
 # ======================
-@app.route("/login", methods=["GET","POST"])
+@app.route("/login", methods=["POST"])
 def login():
-    if request.method == "POST":
-        key = request.form.get("key")
+    key = request.form.get("key")
 
-        if key in USERS:
-            session["role"] = USERS[key]
-            return redirect("/dashboard")
+    if key in USERS:
+        session["role"] = USERS[key]
+        return redirect("/dashboard")
 
-    return """
-    <html>
-    <body style="background:#050505;color:white;font-family:monospace;text-align:center;">
+    return "Wrong key"
 
-    <h1 style="text-shadow:0 0 10px red;">LOGIN</h1>
-
-    <form method="post">
-        <input name="key" placeholder="Enter key" style="padding:10px;background:black;border:1px solid red;color:white;">
-        <br><br>
-        <button style="padding:10px;background:black;border:1px solid red;color:white;">LOGIN</button>
-    </form>
-
-    </body>
-    </html>
-    """
 
 # ======================
 # 📊 DASHBOARD
@@ -169,52 +116,93 @@ def login():
 @app.route("/dashboard")
 def dashboard():
     if "role" not in session:
-        return redirect("/login")
+        return redirect("/")
 
     role = session["role"]
 
-    conn = sqlite3.connect("data.db")
-    c = conn.cursor()
+    log_html = "<br>".join(logs[-20:])
 
-    c.execute("SELECT COUNT(*) FROM visits")
-    count = c.fetchone()[0]
-
-    c.execute("SELECT ip, time FROM visits ORDER BY id DESC LIMIT 20")
-    logs = c.fetchall()
-
-    conn.close()
-
-    logs_html = "<br>".join([f"{ip} | {time}" for ip, time in logs])
-
-    founder_panel = ""
+    founder_extra = ""
     if role == "founder":
-        founder_panel = """
-        <button onclick="location.href='/clear_db'">CLEAR DATABASE</button>
+        founder_extra = """
+        <button onclick="window.location='/clear_logs'">Clear Logs</button>
         """
 
     return f"""
     <html>
-    <body style="background:#050505;color:white;font-family:monospace;">
+    <head>
+    <title>Dashboard</title>
 
-    <h1 style="text-align:center;text-shadow:0 0 10px red;">Dashboard ({role})</h1>
+    <style>
+    body {{
+        background: #050505;
+        color: white;
+        font-family: monospace;
+    }}
 
-    <div style="display:flex;padding:20px;gap:20px;">
+    h1 {{
+        text-align: center;
+        color: white;
+        text-shadow: 0 0 10px red;
+    }}
 
-        <div style="flex:1;background:#0a0a0a;padding:20px;border-radius:10px;box-shadow:0 0 15px red;">
+    .container {{
+        display: flex;
+        gap: 20px;
+        padding: 20px;
+    }}
+
+    .panel {{
+        flex: 1;
+        background: rgba(0,0,0,0.8);
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 0 15px rgba(255,255,255,0.2);
+    }}
+
+    .logs {{
+        height: 300px;
+        overflow-y: auto;
+        background: black;
+        padding: 10px;
+        border: 1px solid white;
+    }}
+
+    button {{
+        width: 100%;
+        margin-top: 10px;
+        padding: 10px;
+        border: 1px solid red;
+        background: transparent;
+        color: white;
+        cursor: pointer;
+    }}
+
+    button:hover {{
+        background: red;
+    }}
+    </style>
+    </head>
+
+    <body>
+
+    <h1>Dashboard ({role.upper()})</h1>
+
+    <div class="container">
+
+        <div class="panel">
             <h3>Stats</h3>
-            <p>Total visits: {count}</p>
+            <p>Visitors: {visits}</p>
 
-            <button onclick="location.reload()">Refresh</button>
-            <button onclick="location.href='/logout'">Logout</button>
+            <button onclick="window.location.reload()">Refresh</button>
+            <button onclick="window.location='/logout'">Logout</button>
 
-            {founder_panel}
+            {founder_extra}
         </div>
 
-        <div style="flex:1;background:#0a0a0a;padding:20px;border-radius:10px;box-shadow:0 0 15px red;">
-            <h3>Logs</h3>
-            <div style="height:300px;overflow:auto;background:black;padding:10px;border:1px solid red;">
-                {logs_html}
-            </div>
+        <div class="panel">
+            <h3>Visitor Logs</h3>
+            <div class="logs">{log_html}</div>
         </div>
 
     </div>
@@ -223,21 +211,18 @@ def dashboard():
     </html>
     """
 
+
 # ======================
 # 🔥 FOUNDER ONLY
 # ======================
-@app.route("/clear_db")
-def clear_db():
+@app.route("/clear_logs")
+def clear_logs():
     if session.get("role") != "founder":
         return "Access denied"
 
-    conn = sqlite3.connect("data.db")
-    c = conn.cursor()
-    c.execute("DELETE FROM visits")
-    conn.commit()
-    conn.close()
-
+    logs.clear()
     return redirect("/dashboard")
+
 
 # ======================
 # 🔓 LOGOUT
@@ -246,6 +231,7 @@ def clear_db():
 def logout():
     session.clear()
     return redirect("/")
+
 
 # ======================
 # 🚀 RUN
