@@ -1,12 +1,30 @@
 from flask import Flask, request, session, redirect
 from datetime import datetime
+import sqlite3
 import os
 
 app = Flask(__name__)
 app.secret_key = "m0ltex_secret_2026"
 
-visits = 0
-logs = []
+# ======================
+# 💾 DATABASE INIT
+# ======================
+def init_db():
+    conn = sqlite3.connect("data.db")
+    c = conn.cursor()
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS visits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ip TEXT,
+        time TEXT
+    )
+    """)
+
+    conn.commit()
+    conn.close()
+
+init_db()
 
 # 🔐 LOGIN KEYS
 USERS = {
@@ -19,76 +37,98 @@ USERS = {
 # ======================
 @app.route("/")
 def home():
-    global visits
-    visits += 1
-
     ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-    logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] {ip}")
 
-    return f"""
+    conn = sqlite3.connect("data.db")
+    c = conn.cursor()
+    c.execute("INSERT INTO visits (ip, time) VALUES (?, ?)", (ip, datetime.now().strftime("%H:%M:%S")))
+    conn.commit()
+    conn.close()
+
+    return """
     <html>
     <head>
     <title>m0ltexArmy</title>
 
     <style>
-    body {{
+    body {
         margin:0;
-        background:black;
-        font-family:monospace;
+        background:#050505;
         color:white;
-        overflow:hidden;
-    }}
+        font-family:monospace;
+        display:flex;
+    }
 
-    h1 {{
-        text-align:center;
-        margin-top:40px;
-        font-size:70px;
-        text-shadow:0 0 10px red,0 0 30px red;
-    }}
-
-    .panel {{
-        width:300px;
-        margin:80px auto;
+    /* 🔥 SIDEBAR */
+    .sidebar {
+        width:220px;
+        height:100vh;
+        background:#0a0a0a;
+        border-right:1px solid red;
+        box-shadow:0 0 20px red;
         padding:20px;
-        background:rgba(0,0,0,0.9);
+    }
+
+    .sidebar h2 {
+        color:white;
+        text-shadow:0 0 10px red;
+    }
+
+    .menu a {
+        display:block;
+        margin:15px 0;
+        color:white;
+        text-decoration:none;
+        padding:8px;
+        border:1px solid transparent;
+    }
+
+    .menu a:hover {
+        border:1px solid red;
+        box-shadow:0 0 10px red;
+    }
+
+    /* 🔥 MAIN */
+    .main {
+        flex:1;
+        padding:40px;
+        text-align:center;
+    }
+
+    h1 {
+        font-size:70px;
+        text-shadow:0 0 10px red,0 0 40px red;
+    }
+
+    .box {
+        margin-top:50px;
+        padding:30px;
+        background:rgba(0,0,0,0.8);
         border-radius:10px;
         box-shadow:0 0 20px red;
-    }}
-
-    input {{
-        width:100%;
-        padding:10px;
-        background:black;
-        border:1px solid red;
-        color:white;
-        margin-top:10px;
-    }}
-
-    button {{
-        width:100%;
-        margin-top:10px;
-        padding:10px;
-        border:1px solid red;
-        background:black;
-        color:white;
-        cursor:pointer;
-    }}
-
-    button:hover {{
-        background:red;
-    }}
+    }
     </style>
     </head>
 
     <body>
 
-    <h1>ᴍ𝟘ʟᴛᴇ𝔁𝔸𝕣𝕞𝕪</h1>
+    <div class="sidebar">
+        <h2>MENU</h2>
+        <div class="menu">
+            <a href="/login">Login</a>
+            <a href="#">Shop</a>
+            <a href="#">Discord</a>
+            <a href="#">YouTube</a>
+            <a href="#">Info</a>
+        </div>
+    </div>
 
-    <div class="panel">
-        <form method="POST" action="/login">
-            <input name="key" placeholder="Enter access key">
-            <button>LOGIN</button>
-        </form>
+    <div class="main">
+        <h1>ᴍ𝟘ʟᴛᴇ𝔁𝔸𝕣𝕞𝕪</h1>
+
+        <div class="box">
+            <p>Welcome to the system</p>
+        </div>
     </div>
 
     </body>
@@ -96,17 +136,32 @@ def home():
     """
 
 # ======================
-# 🔐 LOGIN
+# 🔐 LOGIN PAGE
 # ======================
-@app.route("/login", methods=["POST"])
+@app.route("/login", methods=["GET","POST"])
 def login():
-    key = request.form.get("key")
+    if request.method == "POST":
+        key = request.form.get("key")
 
-    if key in USERS:
-        session["role"] = USERS[key]
-        return redirect("/dashboard")
+        if key in USERS:
+            session["role"] = USERS[key]
+            return redirect("/dashboard")
 
-    return "<h1 style='color:red;text-align:center;'>❌ Wrong key</h1>"
+    return """
+    <html>
+    <body style="background:#050505;color:white;font-family:monospace;text-align:center;">
+
+    <h1 style="text-shadow:0 0 10px red;">LOGIN</h1>
+
+    <form method="post">
+        <input name="key" placeholder="Enter key" style="padding:10px;background:black;border:1px solid red;color:white;">
+        <br><br>
+        <button style="padding:10px;background:black;border:1px solid red;color:white;">LOGIN</button>
+    </form>
+
+    </body>
+    </html>
+    """
 
 # ======================
 # 📊 DASHBOARD
@@ -114,90 +169,52 @@ def login():
 @app.route("/dashboard")
 def dashboard():
     if "role" not in session:
-        return redirect("/")
+        return redirect("/login")
 
     role = session["role"]
-    log_html = "<br>".join(logs[-20:])
+
+    conn = sqlite3.connect("data.db")
+    c = conn.cursor()
+
+    c.execute("SELECT COUNT(*) FROM visits")
+    count = c.fetchone()[0]
+
+    c.execute("SELECT ip, time FROM visits ORDER BY id DESC LIMIT 20")
+    logs = c.fetchall()
+
+    conn.close()
+
+    logs_html = "<br>".join([f"{ip} | {time}" for ip, time in logs])
 
     founder_panel = ""
     if role == "founder":
         founder_panel = """
-        <button onclick="location.href='/clear_logs'">CLEAR LOGS</button>
-        <button onclick="location.href='/reset'">RESET VISITS</button>
+        <button onclick="location.href='/clear_db'">CLEAR DATABASE</button>
         """
 
     return f"""
     <html>
-    <head>
-    <style>
-    body {{
-        background:black;
-        color:white;
-        font-family:monospace;
-    }}
+    <body style="background:#050505;color:white;font-family:monospace;">
 
-    h1 {{
-        text-align:center;
-        text-shadow:0 0 15px red;
-    }}
+    <h1 style="text-align:center;text-shadow:0 0 10px red;">Dashboard ({role})</h1>
 
-    .container {{
-        display:flex;
-        gap:20px;
-        padding:20px;
-    }}
+    <div style="display:flex;padding:20px;gap:20px;">
 
-    .panel {{
-        flex:1;
-        background:rgba(0,0,0,0.9);
-        padding:20px;
-        border-radius:10px;
-        box-shadow:0 0 20px red;
-    }}
-
-    .logs {{
-        height:300px;
-        overflow:auto;
-        background:black;
-        padding:10px;
-        border:1px solid red;
-    }}
-
-    button {{
-        width:100%;
-        margin-top:10px;
-        padding:10px;
-        border:1px solid red;
-        background:black;
-        color:white;
-        cursor:pointer;
-    }}
-
-    button:hover {{
-        background:red;
-    }}
-    </style>
-    </head>
-
-    <body>
-
-    <h1>DASHBOARD ({role.upper()})</h1>
-
-    <div class="container">
-
-        <div class="panel">
+        <div style="flex:1;background:#0a0a0a;padding:20px;border-radius:10px;box-shadow:0 0 15px red;">
             <h3>Stats</h3>
-            <p>Visitors: {visits}</p>
+            <p>Total visits: {count}</p>
 
-            <button onclick="location.reload()">REFRESH</button>
-            <button onclick="location.href='/logout'">LOGOUT</button>
+            <button onclick="location.reload()">Refresh</button>
+            <button onclick="location.href='/logout'">Logout</button>
 
             {founder_panel}
         </div>
 
-        <div class="panel">
-            <h3>Visitor Logs</h3>
-            <div class="logs">{log_html}</div>
+        <div style="flex:1;background:#0a0a0a;padding:20px;border-radius:10px;box-shadow:0 0 15px red;">
+            <h3>Logs</h3>
+            <div style="height:300px;overflow:auto;background:black;padding:10px;border:1px solid red;">
+                {logs_html}
+            </div>
         </div>
 
     </div>
@@ -209,21 +226,17 @@ def dashboard():
 # ======================
 # 🔥 FOUNDER ONLY
 # ======================
-@app.route("/clear_logs")
-def clear_logs():
+@app.route("/clear_db")
+def clear_db():
     if session.get("role") != "founder":
         return "Access denied"
 
-    logs.clear()
-    return redirect("/dashboard")
+    conn = sqlite3.connect("data.db")
+    c = conn.cursor()
+    c.execute("DELETE FROM visits")
+    conn.commit()
+    conn.close()
 
-@app.route("/reset")
-def reset():
-    if session.get("role") != "founder":
-        return "Access denied"
-
-    global visits
-    visits = 0
     return redirect("/dashboard")
 
 # ======================
