@@ -8,18 +8,22 @@ app = Flask(__name__)
 app.secret_key = "m0ltex_final_secret_2026"
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+# ====================== DATABASE ======================
 def init_db():
     conn = sqlite3.connect("data.db")
     c = conn.cursor()
     c.execute("""CREATE TABLE IF NOT EXISTS visits (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    ip TEXT, user_agent TEXT, referrer TEXT,
-                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+                    ip TEXT, user_agent TEXT, referrer TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
                 )""")
     c.execute("""CREATE TABLE IF NOT EXISTS unique_visits (
-                    ip TEXT PRIMARY KEY, first_visit DATETIME,
-                    last_visit DATETIME, visits INTEGER DEFAULT 1,
-                    user_agent TEXT, country TEXT, city TEXT
+                    ip TEXT PRIMARY KEY,
+                    first_visit DATETIME,
+                    last_visit DATETIME,
+                    visits INTEGER DEFAULT 1,
+                    user_agent TEXT,
+                    country TEXT,
+                    city TEXT
                 )""")
     conn.commit()
     conn.close()
@@ -30,18 +34,19 @@ def get_real_ip():
     headers = ['CF-Connecting-IP', 'X-Forwarded-For', 'X-Real-IP', 'True-Client-IP']
     for h in headers:
         ip = request.headers.get(h)
-        if ip: return ip.split(',')[0].strip()
+        if ip:
+            return ip.split(',')[0].strip()
     return request.remote_addr
 
 def get_location(ip):
     try:
-        r = requests.get(f"http://ip-api.com/json/{ip}?fields=status,country,city,lat,lon", timeout=3)
+        r = requests.get(f"http://ip-api.com/json/{ip}?fields=status,country,city", timeout=4)
         data = r.json()
         if data.get("status") == "success":
-            return data.get("country"), data.get("city"), data.get("lat"), data.get("lon")
+            return data.get("country", "Unknown"), data.get("city", "Unknown")
     except:
         pass
-    return "Unknown", "Unknown", None, None
+    return "Unknown", "Unknown"
 
 # ====================== HOME ======================
 @app.route("/")
@@ -49,16 +54,15 @@ def home():
     ip = get_real_ip()
     ua = request.headers.get('User-Agent', 'Unknown')
     ref = request.headers.get('Referer', 'Direct')
-    country, city, lat, lon = get_location(ip)
+    country, city = get_location(ip)
 
     conn = sqlite3.connect("data.db")
     c = conn.cursor()
     c.execute("INSERT INTO visits (ip, user_agent, referrer) VALUES (?, ?, ?)", (ip, ua, ref))
     c.execute("""INSERT INTO unique_visits (ip, first_visit, last_visit, visits, user_agent, country, city)
                  VALUES (?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, ?, ?, ?)
-                 ON CONFLICT(ip) DO UPDATE SET 
-                 last_visit=CURRENT_TIMESTAMP, visits=visits+1, country=?, city=?""",
-                 (ip, ua, country, city, country, city))
+                 ON CONFLICT(ip) DO UPDATE SET last_visit=CURRENT_TIMESTAMP, visits=visits+1, country=?, city=?""",
+              (ip, ua, country, city, country, city))
     conn.commit()
     conn.close()
 
@@ -113,7 +117,7 @@ document.getElementById("cmd").addEventListener("keypress", e => {
     }
 });
 
-// Matrix Rain - vylepšený
+// Matrix Rain
 const canvas = document.getElementById("rain");
 const ctx = canvas.getContext("2d");
 canvas.height = window.innerHeight;
@@ -160,15 +164,10 @@ def shop():
         <div style="background:#111; border:2px solid #ff0000; padding:25px; width:340px;">
             <h2>50 000 Robux</h2>
             <p><strong>24.99$</strong></p>
-            <button onclick="alert('Robux přidány na účet (simulace)')" style="padding:14px 40px; background:#ff0000; color:black; border:none; cursor:pointer;">Koupit</button>
-        </div>
-        <div style="background:#111; border:2px solid #ff0000; padding:25px; width:340px;">
-            <h2>Private VPN (3 roky)</h2>
-            <p><strong>12.99$</strong></p>
-            <button onclick="alert('VPN aktivován (simulace)')" style="padding:14px 40px; background:#ff0000; color:black; border:none; cursor:pointer;">Koupit</button>
+            <button onclick="alert('Robux přidány (simulace)')" style="padding:14px 40px; background:#ff0000; color:black; border:none; cursor:pointer;">Koupit</button>
         </div>
     </div>
-    <br><a href="/" style="color:#ff6666;">← Zpět domů</a>
+    <br><a href="/" style="color:#ff6666;">← Zpět</a>
     </body>
     """
 
@@ -177,35 +176,34 @@ def shop():
 def map_page():
     conn = sqlite3.connect("data.db")
     c = conn.cursor()
-    c.execute("SELECT ip, country, city, last_visit FROM unique_visits WHERE country != 'Unknown' ORDER BY last_visit DESC LIMIT 50")
+    c.execute("SELECT ip, country, city, last_visit FROM unique_visits WHERE country != 'Unknown' ORDER BY last_visit DESC LIMIT 30")
     victims = c.fetchall()
     conn.close()
 
     markers = []
     for ip, country, city, time in victims:
-        markers.append(f'["{ip}", "{country}", "{city}", "{time}"]')
+        markers.append(f'["{ip}", "{country or "Unknown"}", "{city or "Unknown"}", "{time}"]')
 
     return f"""
-    <body style="background:#000; color:#00ffcc; font-family:monospace; margin:0; padding:0;">
+    <body style="background:#000; color:#00ffcc; font-family:monospace; margin:0;">
     <h1 style="color:#ff0000; text-align:center; padding:15px; background:#111; margin:0;">LIVE VICTIMS MAP</h1>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <div id="map" style="height:calc(100vh - 60px);"></div>
+    <div id="map" style="height:calc(100vh - 60px); width:100%;"></div>
     <script>
         var map = L.map('map').setView([20, 0], 2);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png').addTo(map);
-        
-        var victims = [{markers}];
-        victims.forEach(v => {{
-            L.marker([Math.random()*180-90, Math.random()*360-180]).addTo(map)
-             .bindPopup(`<b>${{v[0]}}</b><br>${{v[1]}} - ${{v[2]}}<br>${{v[3]}}`);
+        L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png').addTo(map);
+        var data = [{",".join(markers)}];
+        data.forEach(item => {{
+            L.marker([Math.random()*140 - 70, Math.random()*300 - 150]).addTo(map)
+             .bindPopup(`<b>${{item[0]}}</b><br>${{item[1]}} - ${{item[2]}}<br>${{item[3]}}`);
         }});
     </script>
-    <a href="/" style="position:absolute;top:10px;right:20px;color:#ff6666;z-index:1000;">← Home</a>
+    <a href="/" style="position:absolute; top:20px; right:20px; color:#ff6666; z-index:1000; text-decoration:none;">← Home</a>
     </body>
-    """.replace("{markers}", ",".join(markers))
+    """
 
-# Login, Dashboard, Logout, Socket...
+# ====================== LOGIN + DASHBOARD + LOGOUT ======================
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -217,15 +215,21 @@ def login():
             session["role"] = "staff"
             return redirect("/dashboard")
         else:
-            return "<h2 style='color:red;text-align:center;margin-top:100px;'>Špatné heslo!</h2><a href='/login'>← Zpět</a>"
-    return """<body style="background:#000;color:#00ffcc;text-align:center;padding-top:150px;">
-    <h1 style="color:#ff0000;">LOGIN</h1>
-    <form method="post"><input type="text" name="key" placeholder="Zadej klíč" style="padding:15px;width:300px;"><br><br>
-    <button style="padding:12px 40px;background:#ff0000;color:black;border:none;">PŘIHLÁSIT</button></form></body>"""
+            return "<h2 style='color:red;text-align:center;margin-top:100px;'>Špatné heslo!</h2><br><a href='/login'>← Zpět</a>"
+    return """
+    <body style="background:#000;color:#00ffcc;font-family:monospace;text-align:center;padding-top:150px;">
+    <h1 style="color:#ff0000;">m0ltexArmy LOGIN</h1>
+    <form method="post">
+        <input type="text" name="key" placeholder="Zadej klíč" style="padding:15px;width:320px;background:#111;border:2px solid #ff0000;color:#00ffcc;"><br><br>
+        <button style="padding:14px 50px;background:#ff0000;color:black;border:none;cursor:pointer;">PŘIHLAŠIT</button>
+    </form>
+    </body>
+    """
 
 @app.route("/dashboard")
 def dashboard():
-    if "role" not in session: return redirect("/login")
+    if "role" not in session:
+        return redirect("/login")
     return f"<h1 style='color:#ff0000;text-align:center;margin-top:100px;'>CONTROL PANEL — {session['role'].upper()}</h1><br><a href='/logout'>Logout</a>"
 
 @app.route("/logout")
@@ -233,7 +237,9 @@ def logout():
     session.clear()
     return redirect("/")
 
+# ====================== SOCKET ======================
 online_users = 0
+
 @socketio.on("connect")
 def connect():
     global online_users
@@ -247,5 +253,5 @@ def disconnect():
     emit("online", online_users, broadcast=True)
 
 if __name__ == "__main__":
-    print("✅ m0ltexArmy v2.5 FINAL - Mapa + Shop + Sidebar")
+    print("✅ m0ltexArmy v2.5 FIXED - Started")
     socketio.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)), debug=False)
